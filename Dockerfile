@@ -44,8 +44,8 @@ RUN npm run db:generate
 # Copiar o código compilado
 COPY --from=build /app/dist ./dist
 
-# Copiar certificado CA se existir (opcional)
-COPY --from=build /app/src/config/ca.crt* ./src/config/ 2>/dev/null || true
+# Copiar certificado CA
+COPY --from=build /app/src/config/ca.crt ./src/config/ca.crt
 
 # Criar usuário não-root para segurança
 RUN groupadd -r appuser && useradd -r -g appuser appuser
