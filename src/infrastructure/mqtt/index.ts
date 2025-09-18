@@ -71,17 +71,24 @@ export function createDualMqttService(): DualMqttService {
   }
 
   // Configurar certificado CA se disponível
-  const caCertPath = '/src/config/ca.crt';
+  const caCertPath = process.env.CA_CERT_PATH || './src/config/ca.crt';
   let caCert: string | undefined;
-  try {
-    if (existsSync(caCertPath)) {
-      caCert = readFileSync(caCertPath, 'utf8');
-      console.log(`🔒 Certificado CA carregado: ${caCertPath}`);
-    } else {
-      console.warn(`⚠️ Certificado CA não encontrado: ${caCertPath}`);
+  
+  // Tentar carregar certificado CA apenas se especificado
+  if (process.env.MQTTS_CA_CERT_PATH || process.env.CA_CERT_PATH) {
+    const certPath = process.env.MQTTS_CA_CERT_PATH || caCertPath;
+    try {
+      if (existsSync(certPath)) {
+        caCert = readFileSync(certPath, 'utf8');
+        console.log(`🔒 Certificado CA carregado: ${certPath}`);
+      } else {
+        console.warn(`⚠️ Certificado CA não encontrado: ${certPath}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Erro ao carregar certificado CA: ${error.message}`);
     }
-  } catch (error) {
-    console.warn(`⚠️ Erro ao carregar certificado CA: ${error.message}`);
+  } else {
+    console.log(`ℹ️ Certificado CA não especificado - usando conexão sem verificação de certificado`);
   }
 
   const mqttsConfig: MqttConfig = {
@@ -108,7 +115,7 @@ export function createDualMqttService(): DualMqttService {
     ),
     rejectUnauthorized: process.env.MQTTS_REJECT_UNAUTHORIZED === 'true',
     clean: true,
-    ca: caCert, // Adicionar certificado CA
+    ...(caCert && { ca: caCert }), // Adicionar certificado CA apenas se disponível
   };
 
   const dualConfig: DualMqttConfig = {
