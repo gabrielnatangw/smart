@@ -71,7 +71,7 @@ export function createDualMqttService(): DualMqttService {
   }
 
   // Configurar certificado CA se disponível
-  const caCertPath = '/home/devgroupwork167/backend-v2/ca.crt';
+  const caCertPath = '/src/config/ca.crt';
   let caCert: string | undefined;
   try {
     if (existsSync(caCertPath)) {
