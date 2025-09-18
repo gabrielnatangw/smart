@@ -63,7 +63,7 @@ export class DatabaseConnector {
         // Desenvolvimento local - usar IP público
         host = process.env.PROD_DB_HOST || '34.135.81.224';
         port = 5432;
-        sslMode = 'require'; // SSL obrigatório para conexão externa
+        sslMode = process.env.PROD_DB_SSL_MODE || 'prefer'; // Tentar prefer primeiro, depois require
         console.log('🏠 Modo desenvolvimento local');
       }
 
@@ -80,24 +80,46 @@ export class DatabaseConnector {
 
       // Construir URL de conexão direta para GCP (codificar senha para URL)
       const encodedPassword = encodeURIComponent(password);
-      const cloudSqlUrl = `postgresql://${username}:${encodedPassword}@${host}:${port}/${database}?sslmode=${sslMode}`;
+      
+      // Tentar diferentes modos de SSL se necessário
+      const sslModes = [sslMode, 'disable', 'prefer', 'require'];
+      let prisma: PrismaClient | null = null;
+      let lastError: Error | null = null;
 
-      console.log(
-        `🔗 URL GCP: postgresql://${username}:***@${host}:${port}/${database}?sslmode=${sslMode}`
-      );
+      for (const mode of sslModes) {
+        try {
+          const cloudSqlUrl = `postgresql://${username}:${encodedPassword}@${host}:${port}/${database}?sslmode=${mode}`;
 
-      // Criar PrismaClient com configuração Cloud SQL direta
-      const prisma = new PrismaClient({
-        datasources: {
-          db: {
-            url: cloudSqlUrl,
-          },
-        },
-      });
+          console.log(
+            `🔗 Tentando conexão: postgresql://${username}:***@${host}:${port}/${database}?sslmode=${mode}`
+          );
 
-      // Testar conexão
-      await prisma.$connect();
-      console.log('✅ Conectado com banco de dados diretamente com sucesso!');
+          // Criar PrismaClient com configuração Cloud SQL direta
+          prisma = new PrismaClient({
+            datasources: {
+              db: {
+                url: cloudSqlUrl,
+              },
+            },
+          });
+
+          // Testar conexão
+          await prisma.$connect();
+          console.log(`✅ Conectado com banco de dados com sslmode=${mode}!`);
+          break;
+        } catch (error) {
+          console.warn(`⚠️ Falha com sslmode=${mode}: ${error.message}`);
+          lastError = error as Error;
+          if (prisma) {
+            await prisma.$disconnect();
+            prisma = null;
+          }
+        }
+      }
+
+      if (!prisma) {
+        throw lastError || new Error('Falha ao conectar com todos os modos SSL');
+      }
 
       return prisma;
     } catch (error) {
