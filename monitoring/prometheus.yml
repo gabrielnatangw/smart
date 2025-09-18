@@ -1,0 +1,93 @@
+# ========================================
+# 📊 PROMETHEUS CONFIGURATION
+# ========================================
+# Configuração do Prometheus para monitoramento da aplicação
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'backend-production'
+    replica: 'A'
+
+# ========================================
+# 📋 REGRAS DE ALERTA
+# ========================================
+rule_files:
+  - 'alert_rules.yml'
+
+# ========================================
+# 🎯 TARGETS DE SCRAPING
+# ========================================
+scrape_configs:
+  # ========================================
+  # 🚀 BACKEND API
+  # ========================================
+  - job_name: 'backend-api'
+    static_configs:
+      - targets: ['backend-api:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+
+  # ========================================
+  # 🗄️ POSTGRESQL
+  # ========================================
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+
+  # ========================================
+  # 🔴 REDIS
+  # ========================================
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+
+  # ========================================
+  # 🌐 NGINX
+  # ========================================
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+
+  # ========================================
+  # 📊 PROMETHEUS SELF-MONITORING
+  # ========================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    scheme: http
+
+# ========================================
+# 🚨 CONFIGURAÇÕES DE ALERTA
+# ========================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# ========================================
+# 💾 CONFIGURAÇÕES DE ARMAZENAMENTO
+# ========================================
+storage:
+  tsdb:
+    retention.time: 15d
+    retention.size: 1GB
+    wal-compression: true

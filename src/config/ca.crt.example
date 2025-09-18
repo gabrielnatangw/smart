@@ -1,0 +1,10 @@
+-----BEGIN CERTIFICATE-----
+# Cole aqui o certificado CA real fornecido pelo broker MQTT
+# Substitua este conteúdo pelo certificado real
+# 
+# Exemplo de formato:
+# -----BEGIN CERTIFICATE-----
+# MIIDXTCCAkWgAwIBAgIJAKoK/Ovj8W...
+# ... (conteúdo do certificado) ...
+# -----END CERTIFICATE-----
+-----END CERTIFICATE-----

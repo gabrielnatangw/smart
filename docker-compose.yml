@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # 🗄️ POSTGRESQL DATABASE LOCAL
+  # ========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: backend_postgres_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: backend_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --lc-collate=C --lc-ctype=C'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - backend_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d backend_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========================================
+  # 🔴 REDIS CACHE (OPCIONAL)
+  # ========================================
+  redis:
+    image: redis:7-alpine
+    container_name: backend_redis_local
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  backend_network:
+    driver: bridge

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔬 Sensor Monitor - Real Time Data</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            border-bottom: 1px solid #334155;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #1d4ed8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #94a3b8;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #22c55e;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
+        .main-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #f3f4f6;
+            border: 1px solid #4b5563;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #60a5fa;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sensors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .sensor-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 1px solid #475569;
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .sensor-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #22c55e 0%, #eab308 50%, #ef4444 100%);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .sensor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .sensor-id {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .sensor-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-normal {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-alert {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            animation: alertPulse 2s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .sensor-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #60a5fa;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .sensor-range {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .range-bar {
+            height: 8px;
+            background: #374151;
+            border-radius: 4px;
+            margin: 1rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .range-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        .range-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 20%;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 100%);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .sensor-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #334155;
+        }
+
+        .data-log {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 1px solid #475569;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .data-log h3 {
+            color: #f1f5f9;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .log-entries {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .log-entry {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            background: rgba(15, 23, 42, 0.5);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .log-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .timestamp {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #64748b;
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #334155;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .status-indicator {
+                position: static;
+                margin-top: 1rem;
+                justify-content: center;
+            }
+
+            .main-container {
+                padding: 1rem;
+            }
+
+            .sensors-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 Sensor Monitor</h1>
+        <p>Monitoramento em tempo real de dados de sensores via MQTT</p>
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Desconectado</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="controls">
+            <button class="btn btn-primary" id="connectBtn">
+                🔌 Conectar ao Namespace /sensor
+            </button>
+            <button class="btn btn-secondary" id="clearBtn">
+                🗑️ Limpar Dados
+            </button>
+            <button class="btn btn-secondary" id="testBtn">
+                🧪 Simular Dados de Teste
+            </button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalSensors">0</div>
+                <div class="stat-label">Total de Sensores</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="activeSensors">0</div>
+                <div class="stat-label">Sensores Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="alertCount">0</div>
+                <div class="stat-label">Alertas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdate">--:--:--</div>
+                <div class="stat-label">Última Atualização</div>
+            </div>
+        </div>
+
+        <div class="sensors-grid" id="sensorsGrid">
+            <div class="empty-state">
+                <div class="icon">📡</div>
+                <h3>Aguardando dados dos sensores</h3>
+                <p>Conecte-se ao namespace /sensor para começar a receber dados</p>
+            </div>
+        </div>
+
+        <div class="data-log">
+            <h3>📊 Log de Dados Recebidos</h3>
+            <div class="log-entries" id="logEntries">
+                <div class="empty-state">
+                    <p>Nenhum dado recebido ainda...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SensorMonitor {
+            constructor() {
+                this.socket = null;
+                this.sensors = new Map();
+                this.isConnected = false;
+                this.logCount = 0;
+                
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    connectBtn: document.getElementById('connectBtn'),
+                    clearBtn: document.getElementById('clearBtn'),
+                    testBtn: document.getElementById('testBtn'),
+                    statusDot: document.getElementById('statusDot'),
+                    statusText: document.getElementById('statusText'),
+                    sensorsGrid: document.getElementById('sensorsGrid'),
+                    logEntries: document.getElementById('logEntries'),
+                    totalSensors: document.getElementById('totalSensors'),
+                    activeSensors: document.getElementById('activeSensors'),
+                    alertCount: document.getElementById('alertCount'),
+                    lastUpdate: document.getElementById('lastUpdate')
+                };
+            }
+
+            bindEvents() {
+                this.elements.connectBtn.addEventListener('click', () => this.toggleConnection());
+                this.elements.clearBtn.addEventListener('click', () => this.clearData());
+                this.elements.testBtn.addEventListener('click', () => this.simulateTestData());
+            }
+
+            toggleConnection() {
+                if (this.isConnected) {
+                    this.disconnect();
+                } else {
+                    this.connect();
+                }
+            }
+
+            connect() {
+                try {
+                    this.socket = io('/sensor');
+                    this.setupSocketEvents();
+                    this.elements.connectBtn.innerHTML = '<div class="loading"></div> Conectando...';
+                    this.elements.connectBtn.disabled = true;
+                } catch (error) {
+                    console.error('Erro ao conectar:', error);
+                    this.addLog(`❌ Erro de conexão: ${error.message}`);
+                }
+            }
+
+            setupSocketEvents() {
+                this.socket.on('connect', () => {
+                    this.updateConnectionStatus(true);
+                    this.addLog('✅ Conectado ao namespace /sensor');
+                    
+                    // Request sensor status
+                    this.socket.emit('get-sensor-status');
+                });
+
+                this.socket.on('disconnect', () => {
+                    this.updateConnectionStatus(false);
+                    this.addLog('❌ Desconectado do namespace /sensor');
+                });
+
+                this.socket.on('connection-status', (data) => {
+                    this.addLog(`🔌 Status de conexão: ${JSON.stringify(data, null, 2)}`);
+                });
+
+                this.socket.on('sensor-status', (data) => {
+                    this.addLog(`📊 Status dos sensores: ${JSON.stringify(data, null, 2)}`);
+                });
+
+                // Main event - sensor data from MQTT
+                this.socket.on('sensor-data', (data) => {
+                    this.processSensorData(data);
+                });
+
+                this.socket.on('connect_error', (error) => {
+                    console.error('Erro de conexão:', error);
+                    this.addLog(`❌ Erro de conexão: ${error.message}`);
+                    this.updateConnectionStatus(false);
+                });
+            }
+
+            processSensorData(data) {
+                console.log('📊 Dados dos sensores recebidos:', data);
+                
+                // Update sensors
+                if (data.inputs && Array.isArray(data.inputs)) {
+                    data.inputs.forEach(sensor => {
+                        this.sensors.set(sensor.sensor_id, {
+                            ...sensor,
+                            lastUpdate: new Date(),
+                            topic: data.topic
+                        });
+                    });
+                }
+
+                this.updateSensorGrid();
+                this.updateStats();
+                this.addLog(`📡 Recebidos ${data.inputs?.length || 0} sensores do tópico: ${data.topic}`);
+                
+                // Update last update time
+                this.elements.lastUpdate.textContent = new Date().toLocaleTimeString('pt-BR');
+            }
+
+            updateSensorGrid() {
+                const grid = this.elements.sensorsGrid;
+                
+                if (this.sensors.size === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📡</div>
+                            <h3>Aguardando dados dos sensores</h3>
+                            <p>Conecte-se ao namespace /sensor para começar a receber dados</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                grid.innerHTML = '';
+                this.sensors.forEach((sensor, id) => {
+                    const card = this.createSensorCard(sensor);
+                    grid.appendChild(card);
+                });
+            }
+
+            createSensorCard(sensor) {
+                const card = document.createElement('div');
+                card.className = 'sensor-card';
+                
+                const percentage = ((sensor.value - sensor.min) / (sensor.max - sensor.min)) * 100;
+                const isNormal = sensor.status === 'normal';
+                
+                card.innerHTML = `
+                    <div class="sensor-header">
+                        <div class="sensor-id">🔬 ${sensor.sensor_id}</div>
+                        <div class="sensor-status ${isNormal ? 'status-normal' : 'status-alert'}">
+                            ${isNormal ? '✅ Normal' : '⚠️ Alerta'}
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-value">${sensor.value.toFixed(2)}</div>
+                    
+                    <div class="sensor-range">
+                        <span>Min: ${sensor.min}</span>
+                        <span>Max: ${sensor.max}</span>
+                    </div>
+                    
+                    <div class="range-bar">
+                        <div class="range-fill" style="
+                            width: ${Math.max(0, Math.min(100, percentage))}%; 
+                            background: ${isNormal ? 
+                                'linear-gradient(90deg, #22c55e 0%, #3b82f6 100%)' : 
+                                'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)'
+                            }
+                        "></div>
+                    </div>
+                    
+                    <div class="sensor-meta">
+                        <span>📡 ID: ${sensor.id || 'N/A'}</span>
+                        <span>⏰ ${sensor.lastUpdate ? sensor.lastUpdate.toLocaleTimeString('pt-BR') : 'N/A'}</span>
+                    </div>
+                `;
+                
+                return card;
+            }
+
+            updateStats() {
+                const totalSensors = this.sensors.size;
+                const activeSensors = Array.from(this.sensors.values()).filter(s => 
+                    new Date() - s.lastUpdate < 60000 // Active in last minute
+                ).length;
+                const alertCount = Array.from(this.sensors.values()).filter(s => 
+                    s.status === 'alert'
+                ).length;
+
+                this.elements.totalSensors.textContent = totalSensors;
+                this.elements.activeSensors.textContent = activeSensors;
+                this.elements.alertCount.textContent = alertCount;
+            }
+
+            disconnect() {
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+                this.updateConnectionStatus(false);
+            }
+
+            updateConnectionStatus(connected) {
+                this.isConnected = connected;
+                
+                if (connected) {
+                    this.elements.statusDot.classList.add('connected');
+                    this.elements.statusText.textContent = 'Conectado';
+                    this.elements.connectBtn.textContent = '🔌 Desconectar';
+                    this.elements.connectBtn.disabled = false;
+                } else {
+                    this.elements.statusDot.classList.remove('connected');
+                    this.elements.statusText.textContent = 'Desconectado';
+                    this.elements.connectBtn.textContent = '🔌 Conectar ao Namespace /sensor';
+                    this.elements.connectBtn.disabled = false;
+                }
+            }
+
+            addLog(message) {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                
+                const timestamp = new Date().toLocaleTimeString('pt-BR');
+                logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+                
+                // Remove empty state
+                const emptyState = this.elements.logEntries.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+                
+                this.elements.logEntries.insertBefore(logEntry, this.elements.logEntries.firstChild);
+                
+                // Limit log entries
+                const entries = this.elements.logEntries.querySelectorAll('.log-entry');
+                if (entries.length > 50) {
+                    entries[entries.length - 1].remove();
+                }
+                
+                this.logCount++;
+            }
+
+            clearData() {
+                this.sensors.clear();
+                this.updateSensorGrid();
+                this.updateStats();
+                this.elements.logEntries.innerHTML = '<div class="empty-state"><p>Log limpo...</p></div>';
+                this.elements.lastUpdate.textContent = '--:--:--';
+                this.addLog('🗑️ Dados limpos pelo usuário');
+            }
+
+            simulateTestData() {
+                const testData = {
+                    inputs: [
+                        {
+                            id: 1,
+                            sensor_id: 'temperature_01',
+                            value: 25.5 + (Math.random() - 0.5) * 10,
+                            min: 20,
+                            max: 30,
+                            status: Math.random() > 0.7 ? 'alert' : 'normal',
+                            created_at: new Date().toISOString()
+                        },
+                        {
+                            id: 2,
+                            sensor_id: 'pressure_02',
+                            value: 100.2 + (Math.random() - 0.5) * 20,
+                            min: 90,
+                            max: 110,
+                            status: Math.random() > 0.8 ? 'alert' : 'normal',
+                            created_at: new Date().toISOString()
+                        },
+                        {
+                            id: 3,
+                            sensor_id: 'humidity_03',
+                            value: 75.8 + (Math.random() - 0.5) * 15,
+                            min: 70,
+                            max: 80,
+                            status: Math.random() > 0.9 ? 'alert' : 'normal',
+                            created_at: new Date().toISOString()
+                        }
+                    ],
+                    topic: 'test/simulation/pTrace/data',
+                    timestamp: new Date().toISOString(),
+                    total_sensors: 3
+                };
+
+                this.processSensorData(testData);
+                this.addLog('🧪 Dados de teste simulados');
+            }
+        }
+
+        // Initialize the sensor monitor
+        const sensorMonitor = new SensorMonitor();
+    </script>
+</body>
+</html>

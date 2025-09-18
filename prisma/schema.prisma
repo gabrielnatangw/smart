@@ -1,0 +1,671 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  tenant_id             String                  @id @default(uuid())
+  name                  String
+  cnpj                  String?                 @unique
+  address               String?
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now())
+  updated_at            DateTime?
+  deleted_at            DateTime?
+  categoriesResponsible CategoriesResponsible[]
+  eventDescriptions     EventDescription[]
+  machines              Machine[]
+  measurementUnits      MeasurementUnit[]
+  modules               Module[]
+  productOrders         ProductOrder[]
+  responsible           Responsible[]
+  roles                 Role[]
+  shifts                Shift[]
+  stopCauses            StopCause[]
+  tenantSubscriptions   TenantSubscription[]
+  users                 User[]
+  sensorCurrentValues   SensorCurrentValue[]
+  sensorData            SensorData[]
+  viewCards             ViewCard[]
+  viewPermissions       ViewPermission[]
+  views                 View[]
+}
+
+model User {
+  user_id            String           @id @default(uuid())
+  name               String
+  password           String
+  email              String           @unique
+  user_type          String           @default("user") // root, admin, user
+  first_login        Boolean          @default(true)
+  is_active          Boolean          @default(true)
+  created_at         DateTime         @default(now())
+  updated_at         DateTime?
+  deleted_at         DateTime?
+  tenant_id          String?
+  processOrders      ProcessOrder[]
+  refreshTokens      RefreshToken[]
+  tokenCodeEmails    TokenCodeEmail[]
+  tenant             Tenant?          @relation(fields: [tenant_id], references: [tenant_id])
+  userPermissions    UserPermission[]
+  roles              UserRole[]
+  createdCards       ViewCard[]       @relation("CardCreatedBy")
+  updatedCards       ViewCard[]       @relation("CardUpdatedBy")
+  grantedPermissions ViewPermission[] @relation("PermissionGranter")
+  viewPermissions    ViewPermission[]
+  createdViews       View[]           @relation("ViewCreatedBy")
+  updatedViews       View[]           @relation("ViewUpdatedBy")
+  views              View[]
+  helpCenterViews    HelpCenterUserView[]
+  helpCenterSearches HelpCenterSearch[]
+}
+
+model Role {
+  role_id     String     @id @default(uuid())
+  name        String
+  description String
+  isActive    Boolean    @default(true)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime?
+  deleted_at  DateTime?
+  tenant_id   String
+  tenant      Tenant     @relation(fields: [tenant_id], references: [tenant_id])
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([tenant_id])
+}
+
+model UserRole {
+  user_id String
+  role_id String
+  role    Role   @relation(fields: [role_id], references: [role_id])
+  user    User   @relation(fields: [user_id], references: [user_id])
+
+  @@id([user_id, role_id])
+}
+
+model TokenCodeEmail {
+  token_code_email_id String    @id @default(uuid())
+  token               String
+  code                String
+  created_at          DateTime  @default(now())
+  updated_at          DateTime?
+  deleted_at          DateTime?
+  expired_at          DateTime
+  user_id             String?
+  user                User?     @relation(fields: [user_id], references: [user_id])
+}
+
+model RefreshToken {
+  refresh_token_id String    @id @default(uuid())
+  refresh_token    String    @unique
+  expires_in       Float
+  created_at       DateTime  @default(now())
+  updated_at       DateTime?
+  deleted_at       DateTime?
+  user_id          String?
+  user             User?     @relation(fields: [user_id], references: [user_id])
+}
+
+model MeasurementUnit {
+  measurement_unit_id String    @id @default(uuid())
+  label               String
+  unit_symbol         String
+  created_at          DateTime  @default(now())
+  updated_at          DateTime?
+  deleted_at          DateTime?
+  tenant_id           String
+  tenant              Tenant    @relation(fields: [tenant_id], references: [tenant_id])
+  sensors             Sensor[]
+}
+
+model Sensor {
+  sensor_id              String              @id @default(uuid())
+  name                   String
+  min_scale              Float?
+  max_scale              Float?
+  min_alarm              Float?
+  max_alarm              Float?
+  gain                   Float?
+  input_mode             String?
+  ix                     Float?
+  gauge_color            String?
+  offset                 Float?
+  alarm_timeout          Float?
+  counter_name           String?
+  frequency_counter_name String?
+  speed_source           Boolean?
+  interrupt_transition   String?
+  time_unit              String?
+  speed_unit             String?
+  sampling_interval      Float?
+  minimum_period         Float?
+  maximum_period         Float?
+  frequency_resolution   Float?
+  sensor_type            Float
+  created_at             DateTime            @default(now())
+  updated_at             DateTime?
+  deleted_at             DateTime?
+  measurement_unit_id    String
+  module_id              String
+  entry                  Float?
+  eventDescriptions      EventDescription[]
+  measurementUnit        MeasurementUnit     @relation(fields: [measurement_unit_id], references: [measurement_unit_id])
+  module                 Module              @relation(fields: [module_id], references: [module_id])
+  currentValue           SensorCurrentValue?
+  sensorData             SensorData[]
+  viewCards              ViewCard[]
+}
+
+model Module {
+  module_id    String     @id @default(uuid())
+  customer     String
+  country      String
+  city         String
+  blueprint    String
+  sector       String
+  machine_name String
+  created_at   DateTime   @default(now())
+  updated_at   DateTime?
+  deleted_at   DateTime?
+  tenant_id    String
+  machine_id   String?
+  machine      Machine?   @relation(fields: [machine_id], references: [machine_id])
+  tenant       Tenant     @relation(fields: [tenant_id], references: [tenant_id])
+  sensors      Sensor[]
+  viewCards    ViewCard[]
+}
+
+model Machine {
+  machine_id           String         @id @default(uuid())
+  operational_sector   String
+  name                 String
+  manufacturer         String
+  serial_number        String
+  year_of_manufacture  String
+  year_of_installation String
+  max_performance      Float
+  speed_measure_tech   Float
+  created_at           DateTime       @default(now())
+  updated_at           DateTime?
+  deleted_at           DateTime?
+  tenant_id            String
+  tenant               Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  modules              Module[]
+  processOrders        ProcessOrder[]
+  viewCards            ViewCard[]
+}
+
+model ProductOrder {
+  product_order_id  String         @id @default(uuid())
+  production_order  String
+  name              String
+  job_run           Int
+  start_production  DateTime
+  expected_run_time DateTime
+  created_at        DateTime       @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  tenant_id         String?
+  processOrders     ProcessOrder[]
+  tenant            Tenant?        @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model ProcessOrder {
+  process_order_id           String             @id @default(uuid())
+  name                       String
+  job_run                    Int
+  planned_speed              Float
+  start_production           DateTime
+  expected_run_time          DateTime
+  programmed_multiplier      Float?
+  real_multiplier            Float?
+  zero_speed_threshold       Float?
+  production_speed_threshold Float?
+  zero_speed_timeout         Float?
+  production_speed_timeout   Float?
+  cycle_to_run               Float?
+  cycle_time                 Float?
+  created_at                 DateTime           @default(now())
+  updated_at                 DateTime?
+  deleted_at                 DateTime?
+  machine_id                 String?
+  user_id                    String?
+  product_order_id           String
+  eventDescriptions          EventDescription[]
+  machine                    Machine?           @relation(fields: [machine_id], references: [machine_id])
+  productOrder               ProductOrder       @relation(fields: [product_order_id], references: [product_order_id])
+  user                       User?              @relation(fields: [user_id], references: [user_id])
+}
+
+model Shift {
+  shift_id    String    @id @default(uuid())
+  shift_name  String
+  shift_start String
+  shift_end   String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime?
+  deleted_at  DateTime?
+  tenant_id   String
+  tenant      Tenant    @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model StopCause {
+  stop_cause_id     String             @id @default(uuid())
+  description       String
+  parent_id         String?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  tenant_id         String
+  eventDescriptions EventDescription[]
+  parent            StopCause?         @relation("StopCauseParent", fields: [parent_id], references: [stop_cause_id])
+  children          StopCause[]        @relation("StopCauseParent")
+  tenant            Tenant             @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model CategoriesResponsible {
+  category_responsible_id String        @id @default(uuid())
+  category_responsible    String
+  created_at              DateTime      @default(now())
+  updated_at              DateTime?
+  deleted_at              DateTime?
+  tenant_id               String?
+  tenant                  Tenant?       @relation(fields: [tenant_id], references: [tenant_id])
+  responsible             Responsible[]
+}
+
+model Responsible {
+  responsible_id          String                 @id @default(uuid())
+  name                    String
+  code_responsible        String
+  created_at              DateTime               @default(now())
+  updated_at              DateTime?
+  deleted_at              DateTime?
+  tenant_id               String?
+  category_responsible_id String?
+  eventDescriptions       EventDescription[]
+  categoryResponsible     CategoriesResponsible? @relation(fields: [category_responsible_id], references: [category_responsible_id])
+  tenant                  Tenant?                @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model EventDescription {
+  event_description_id String       @id @default(uuid())
+  title                String
+  message              String
+  app                  String
+  viewed               Boolean
+  created_at           DateTime     @default(now())
+  updated_at           DateTime?
+  deleted_at           DateTime?
+  job_run_data_id      String?
+  stop_cause_id        String?
+  sensor_id            String?
+  responsible_id       String?
+  process_order_id     String
+  tenant_id            String
+  processOrder         ProcessOrder @relation(fields: [process_order_id], references: [process_order_id])
+  responsible          Responsible? @relation(fields: [responsible_id], references: [responsible_id])
+  sensor               Sensor?      @relation(fields: [sensor_id], references: [sensor_id])
+  stopCause            StopCause?   @relation(fields: [stop_cause_id], references: [stop_cause_id])
+  tenant               Tenant       @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model Application {
+  application_id      String               @id @default(uuid())
+  name                String               @unique
+  displayName         String
+  description         String?
+  isActive            Boolean              @default(true)
+  created_at          DateTime             @default(now())
+  updated_at          DateTime?
+  deleted_at          DateTime?
+  permissions         Permission[]
+  tenantSubscriptions TenantSubscription[]
+  helpCenterThemes    HelpCenterThemeApplication[]
+  helpCenterVideos    HelpCenterVideoApplication[]
+}
+
+model TenantSubscription {
+  tenantSubscription_id String      @id @default(uuid())
+  isActive              Boolean     @default(true)
+  subscriptionPlan      String
+  maxUsers              Int?
+  expiresAt             DateTime?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime?
+  deleted_at            DateTime?
+  tenant_id             String
+  application_id        String
+  application           Application @relation(fields: [application_id], references: [application_id])
+  tenant                Tenant      @relation(fields: [tenant_id], references: [tenant_id])
+}
+
+model Permission {
+  permission_id   String           @id @default(uuid())
+  function_name   String           // Ex: "users", "modules", "sensors"
+  permission_level String          // Ex: "read", "write", "update", "delete"
+  display_name    String
+  description     String?
+  created_at      DateTime         @default(now())
+  updated_at      DateTime?
+  deleted_at      DateTime?
+  application_id  String
+  application     Application      @relation(fields: [application_id], references: [application_id])
+  userPermissions UserPermission[]
+  rolePermissions RolePermission[]
+
+  @@unique([function_name, permission_level, application_id])
+}
+
+model UserPermission {
+  userPermission_id String     @id @default(uuid())
+  granted           Boolean    @default(true)
+  grantedBy         String?
+  created_at        DateTime   @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  user_id           String
+  permission_id     String
+  permission        Permission @relation(fields: [permission_id], references: [permission_id])
+  user              User       @relation(fields: [user_id], references: [user_id])
+}
+
+model RolePermission {
+  rolePermission_id String     @id @default(uuid())
+  created_at        DateTime   @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  role_id           String
+  permission_id     String
+  role              Role       @relation(fields: [role_id], references: [role_id])
+  permission        Permission @relation(fields: [permission_id], references: [permission_id])
+
+  @@unique([role_id, permission_id])
+}
+
+model View {
+  view_id     String           @id @default(uuid())
+  name        String
+  is_default  Boolean          @default(false)
+  is_public   Boolean          @default(false)
+  is_active   Boolean          @default(true)
+  created_at  DateTime         @default(now())
+  updated_at  DateTime?
+  deleted_at  DateTime?
+  tenant_id   String
+  user_id     String
+  created_by  String
+  updated_by  String
+  cards       ViewCard[]
+  permissions ViewPermission[]
+  creator     User             @relation("ViewCreatedBy", fields: [created_by], references: [user_id])
+  tenant      Tenant           @relation(fields: [tenant_id], references: [tenant_id])
+  updater     User             @relation("ViewUpdatedBy", fields: [updated_by], references: [user_id])
+  user        User             @relation(fields: [user_id], references: [user_id])
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@index([is_public])
+  @@index([is_active])
+  @@index([created_at])
+  @@map("views")
+}
+
+model ViewCard {
+  card_id    String    @id @default(uuid())
+  view_id    String
+  sensor_id  String
+  module_id  String
+  machine_id String?
+  position_x Int       @default(0)
+  position_y Int       @default(0)
+  width      Int       @default(1)
+  height     Int       @default(1)
+  chart_type ChartType
+  title      String?
+  sort_order Int       @default(0)
+  created_at DateTime  @default(now())
+  updated_at DateTime?
+  deleted_at DateTime?
+  tenant_id  String
+  created_by String
+  updated_by String
+  creator    User      @relation("CardCreatedBy", fields: [created_by], references: [user_id])
+  machine    Machine?  @relation(fields: [machine_id], references: [machine_id])
+  module     Module    @relation(fields: [module_id], references: [module_id], onDelete: Cascade)
+  sensor     Sensor    @relation(fields: [sensor_id], references: [sensor_id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenant_id], references: [tenant_id])
+  updater    User      @relation("CardUpdatedBy", fields: [updated_by], references: [user_id])
+  view       View      @relation(fields: [view_id], references: [view_id], onDelete: Cascade)
+
+  @@index([view_id])
+  @@index([sensor_id])
+  @@index([module_id])
+  @@index([machine_id])
+  @@index([chart_type])
+  @@index([view_id, position_x, position_y])
+  @@index([tenant_id])
+  @@map("view_cards")
+}
+
+model SensorData {
+  data_id   String      @id @default(uuid())
+  sensor_id String
+  value     Decimal     @db.Decimal(15, 6)
+  raw_value Decimal?    @db.Decimal(15, 6)
+  unit      String?
+  quality   DataQuality @default(GOOD)
+  timestamp DateTime    @default(now())
+  metadata  Json        @default("{}")
+  tenant_id String
+  sensor    Sensor      @relation(fields: [sensor_id], references: [sensor_id], onDelete: Cascade)
+  tenant    Tenant      @relation(fields: [tenant_id], references: [tenant_id])
+
+  @@index([sensor_id, timestamp(sort: Desc)])
+  @@index([timestamp(sort: Desc)])
+  @@index([quality])
+  @@index([tenant_id])
+  @@map("sensor_data")
+}
+
+model SensorCurrentValue {
+  current_value_id String      @id @default(uuid())
+  sensor_id        String      @unique
+  value            Decimal     @db.Decimal(15, 6)
+  raw_value        Decimal?    @db.Decimal(15, 6)
+  unit             String?
+  quality          DataQuality @default(GOOD)
+  last_updated     DateTime    @default(now())
+  metadata         Json        @default("{}")
+  tenant_id        String
+  sensor           Sensor      @relation(fields: [sensor_id], references: [sensor_id], onDelete: Cascade)
+  tenant           Tenant      @relation(fields: [tenant_id], references: [tenant_id])
+
+  @@index([last_updated])
+  @@index([tenant_id])
+  @@map("sensor_current_values")
+}
+
+model ViewPermission {
+  permission_id String         @id @default(uuid())
+  view_id       String
+  user_id       String
+  permission    PermissionType
+  granted_by    String
+  granted_at    DateTime       @default(now())
+  tenant_id     String
+  granter       User           @relation("PermissionGranter", fields: [granted_by], references: [user_id])
+  tenant        Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  user          User           @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  view          View           @relation(fields: [view_id], references: [view_id], onDelete: Cascade)
+
+  @@unique([view_id, user_id])
+  @@index([tenant_id])
+  @@map("view_permissions")
+}
+
+enum ChartType {
+  GAUGE
+  LINE
+  BAR
+  ONOFF
+  STEP
+  PIE
+}
+
+enum DataQuality {
+  GOOD
+  BAD
+  UNCERTAIN
+  MAINTENANCE
+  OFFLINE
+}
+
+enum PermissionType {
+  READ
+  WRITE
+  ADMIN
+  SHARE
+}
+
+enum VideoPlatform {
+  YOUTUBE
+  VIMEO
+  DAILYMOTION
+  CUSTOM
+}
+
+model HelpCenterTheme {
+  theme_id          String              @id @default(uuid())
+  title             String
+  description       String?
+  icon_name         String?
+  color             String?
+  sort_order        Int                 @default(0)
+  is_active         Boolean             @default(true)
+  created_at        DateTime            @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  videos            HelpCenterVideo[]
+  applications      HelpCenterThemeApplication[]
+
+  @@index([is_active])
+  @@index([sort_order])
+  @@map("help_center_themes")
+}
+
+model HelpCenterVideo {
+  video_id          String              @id @default(uuid())
+  title             String
+  description       String?
+  video_platform    VideoPlatform       @default(YOUTUBE)
+  external_video_id String
+  external_url      String
+  thumbnail_url     String?
+  duration          Int?
+  sort_order        Int                 @default(0)
+  is_active         Boolean             @default(true)
+  is_featured       Boolean             @default(false)
+  created_at        DateTime            @default(now())
+  updated_at        DateTime?
+  deleted_at        DateTime?
+  theme_id          String
+  theme             HelpCenterTheme     @relation(fields: [theme_id], references: [theme_id], onDelete: Cascade)
+  user_views        HelpCenterUserView[]
+  applications      HelpCenterVideoApplication[]
+
+  @@index([theme_id])
+  @@index([is_active])
+  @@index([is_featured])
+  @@index([sort_order])
+  @@map("help_center_videos")
+}
+
+model HelpCenterThemeApplication {
+  theme_application_id String      @id @default(uuid())
+  theme_id             String
+  application_id       String
+  created_at           DateTime    @default(now())
+  theme                HelpCenterTheme @relation(fields: [theme_id], references: [theme_id], onDelete: Cascade)
+  application          Application     @relation(fields: [application_id], references: [application_id], onDelete: Cascade)
+
+  @@unique([theme_id, application_id])
+  @@index([theme_id])
+  @@index([application_id])
+  @@map("help_center_theme_applications")
+}
+
+model HelpCenterVideoApplication {
+  video_application_id String      @id @default(uuid())
+  video_id             String
+  application_id       String
+  created_at           DateTime    @default(now())
+  video                HelpCenterVideo @relation(fields: [video_id], references: [video_id], onDelete: Cascade)
+  application          Application     @relation(fields: [application_id], references: [application_id], onDelete: Cascade)
+
+  @@unique([video_id, application_id])
+  @@index([video_id])
+  @@index([application_id])
+  @@map("help_center_video_applications")
+}
+
+model HelpCenterUserView {
+  view_id           String              @id @default(uuid())
+  user_id           String
+  video_id          String
+  viewed_at         DateTime            @default(now())
+  watch_duration    Int?
+  completed         Boolean             @default(false)
+  user              User                @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  video             HelpCenterVideo     @relation(fields: [video_id], references: [video_id], onDelete: Cascade)
+
+  @@unique([user_id, video_id])
+  @@index([user_id])
+  @@index([video_id])
+  @@index([viewed_at])
+  @@map("help_center_user_views")
+}
+
+model HelpCenterSearch {
+  search_id         String              @id @default(uuid())
+  user_id           String?
+  search_term       String
+  results_count     Int
+  searched_at       DateTime            @default(now())
+  user              User?               @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([searched_at])
+  @@map("help_center_searches")
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  action       String
+  resource     String
+  resource_id  String?
+  user_id      String
+  user_email   String
+  tenant_id    String
+  ip_address   String?
+  user_agent   String?
+  details      Json?
+  old_values   Json?
+  new_values   Json?
+  timestamp    DateTime  @default(now())
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@index([tenant_id])
+  @@index([user_id])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

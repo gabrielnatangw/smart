@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conexão - Sensor Socket</title>
+    <script src="socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-connect { background: #28a745; color: white; }
+        .btn-disconnect { background: #dc3545; color: white; }
+        .btn-test { background: #17a2b8; color: white; }
+        .btn-auth { background: #6f42c1; color: white; }
+        .data { background: #e9ecef; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .token-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .mode-selector { margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Teste de Conexão Sensor Socket</h1>
+        
+        <div class="mode-selector">
+            <h3>🎯 Modo de Conexão:</h3>
+            <button id="test-mode" class="btn-test">🧪 Modo Teste (Sem Auth)</button>
+            <button id="auth-mode" class="btn-auth">🔐 Modo Autenticado (JWT)</button>
+            <button id="mqtt-test-mode" class="btn-test">📡 Teste MQTT (Criação)</button>
+            <button id="topic-monitor-mode" class="btn-test">🎯 Monitor Tópico Específico</button>
+        </div>
+        
+        <div id="auth-section" class="hidden">
+            <h3>🔑 Token JWT:</h3>
+            <input type="text" id="jwt-token" class="token-input" placeholder="Cole seu token JWT aqui...">
+            <p><small>💡 Dica: Use um token válido de usuário logado no sistema</small></p>
+        </div>
+        
+        <div id="mqtt-test-section" class="hidden">
+            <h3>📡 Monitor MQTT - Criação de Sensores:</h3>
+            <div style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-radius: 5px;">
+                <p><strong>🎯 Objetivo:</strong> Monitorar apenas mensagens MQTT de <strong>cadastro de sensores</strong> com o padrão específico.</p>
+                <p><strong>📋 Como usar:</strong></p>
+                <ol>
+                    <li>Deixe esta aba aberta</li>
+                    <li>Vá para sua aplicação e crie um sensor</li>
+                    <li>Volte aqui e veja se apareceu alguma mensagem de configuração</li>
+                </ol>
+                <p><strong>🔍 Filtro:</strong> Só mostra o tópico específico:</p>
+                <p><code>gw/br_scs/lab/teste/vpak-500/sensorConfig</code></p>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <button id="start-mqtt-monitor" class="btn-test">🔍 Iniciar Monitor MQTT</button>
+                <button id="stop-mqtt-monitor" class="btn-disconnect" style="display:none;">⏹️ Parar Monitor</button>
+                <button id="clear-mqtt-logs" class="btn-test">🗑️ Limpar Logs</button>
+            </div>
+            
+            <div id="mqtt-status" style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                <strong>Status:</strong> <span id="mqtt-monitor-status">Parado</span>
+            </div>
+            
+            <div id="mqtt-logs" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                <h4>📋 Logs MQTT:</h4>
+                <p>Clique em "Iniciar Monitor MQTT" para começar a escutar...</p>
+            </div>
+        </div>
+        
+        <div id="topic-monitor-section" class="hidden">
+            <h3>🎯 Monitor Tópico Específico:</h3>
+            <div style="margin: 15px 0; padding: 15px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffeaa7;">
+                <p><strong>🎯 Tópico Monitorado:</strong></p>
+                <p><code style="background: #f8f9fa; padding: 5px; border-radius: 3px;">gw/br_scs/lab/teste/vpak-500/sensorConfig</code></p>
+                <p><strong>📋 Objetivo:</strong> Mostrar APENAS as mensagens deste tópico específico</p>
+                <p><strong>💡 Como usar:</strong> Deixe esta aba aberta e crie sensores na sua aplicação</p>
+                <p><strong>🧪 Teste:</strong> Use o botão "Testar MQTT Real (API)" para enviar uma mensagem MQTT REAL para o broker</p>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <button id="start-topic-monitor" class="btn-test">🎯 Iniciar Monitor</button>
+                <button id="stop-topic-monitor" class="btn-disconnect" style="display:none;">⏹️ Parar Monitor</button>
+                <button id="clear-topic-logs" class="btn-test">🗑️ Limpar Logs</button>
+                <button id="test-sensor-creation" class="btn-test" style="background: #28a745;">🧪 Testar MQTT Real (API)</button>
+            </div>
+            
+            <div id="topic-status" style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                <strong>Status:</strong> <span id="topic-monitor-status">Parado</span>
+            </div>
+            
+            <div id="topic-logs" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                <h4>📋 Logs do Tópico:</h4>
+                <p>Clique em "Iniciar Monitor" para começar a escutar...</p>
+            </div>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            Status: Desconectado
+        </div>
+        
+        <div>
+            <button id="connect" class="btn-connect">Conectar</button>
+            <button id="disconnect" class="btn-disconnect" style="display:none;">Desconectar</button>
+        </div>
+        
+        <div id="data" class="data">
+            <h3>Dados Recebidos:</h3>
+            <p>Nenhum dado ainda...</p>
+        </div>
+        
+        <div>
+            <h3>Informações:</h3>
+            <p><strong>URL Teste:</strong> http://localhost:3001/sensor-test</p>
+            <p><strong>URL Auth:</strong> http://localhost:3001/sensor</p>
+            <p><strong>API Sensores:</strong> http://localhost:3000/api/analog-sensors | /api/digital-sensors</p>
+            <p><strong>Porta Backend:</strong> 3000</p>
+            <p><strong>Porta Socket:</strong> 3000 (mesma porta)</p>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentMode = 'test'; // 'test', 'auth', 'mqtt-test' ou 'topic-monitor'
+        
+        const status = document.getElementById('status');
+        const connectBtn = document.getElementById('connect');
+        const disconnectBtn = document.getElementById('disconnect');
+        const dataDiv = document.getElementById('data');
+        const authSection = document.getElementById('auth-section');
+        const mqttTestSection = document.getElementById('mqtt-test-section');
+        const topicMonitorSection = document.getElementById('topic-monitor-section');
+        const jwtTokenInput = document.getElementById('jwt-token');
+        const testModeBtn = document.getElementById('test-mode');
+        const authModeBtn = document.getElementById('auth-mode');
+        const mqttTestModeBtn = document.getElementById('mqtt-test-mode');
+        const topicMonitorModeBtn = document.getElementById('topic-monitor-mode');
+        const startMqttMonitorBtn = document.getElementById('start-mqtt-monitor');
+        const stopMqttMonitorBtn = document.getElementById('stop-mqtt-monitor');
+        const clearMqttLogsBtn = document.getElementById('clear-mqtt-logs');
+        const mqttLogsDiv = document.getElementById('mqtt-logs');
+        const mqttMonitorStatus = document.getElementById('mqtt-monitor-status');
+        const startTopicMonitorBtn = document.getElementById('start-topic-monitor');
+        const stopTopicMonitorBtn = document.getElementById('stop-topic-monitor');
+        const clearTopicLogsBtn = document.getElementById('clear-topic-logs');
+        const testSensorCreationBtn = document.getElementById('test-sensor-creation');
+        const topicLogsDiv = document.getElementById('topic-logs');
+        const topicMonitorStatus = document.getElementById('topic-monitor-status');
+        let mqttMonitorSocket = null;
+        let topicMonitorSocket = null;
+        
+        // Seleção de modo
+        testModeBtn.onclick = () => {
+            currentMode = 'test';
+            authSection.classList.add('hidden');
+            mqttTestSection.classList.add('hidden');
+            topicMonitorSection.classList.add('hidden');
+            testModeBtn.style.background = '#17a2b8';
+            authModeBtn.style.background = '#6c757d';
+            mqttTestModeBtn.style.background = '#6c757d';
+            topicMonitorModeBtn.style.background = '#6c757d';
+            disconnectIfConnected();
+        };
+        
+        authModeBtn.onclick = () => {
+            currentMode = 'auth';
+            authSection.classList.remove('hidden');
+            mqttTestSection.classList.add('hidden');
+            topicMonitorSection.classList.add('hidden');
+            authModeBtn.style.background = '#6f42c1';
+            testModeBtn.style.background = '#6c757d';
+            mqttTestModeBtn.style.background = '#6c757d';
+            topicMonitorModeBtn.style.background = '#6c757d';
+            disconnectIfConnected();
+        };
+        
+        mqttTestModeBtn.onclick = () => {
+            currentMode = 'mqtt-test';
+            authSection.classList.add('hidden');
+            mqttTestSection.classList.remove('hidden');
+            topicMonitorSection.classList.add('hidden');
+            mqttTestModeBtn.style.background = '#17a2b8';
+            testModeBtn.style.background = '#6c757d';
+            authModeBtn.style.background = '#6c757d';
+            topicMonitorModeBtn.style.background = '#6c757d';
+            disconnectIfConnected();
+        };
+        
+        topicMonitorModeBtn.onclick = () => {
+            currentMode = 'topic-monitor';
+            authSection.classList.add('hidden');
+            mqttTestSection.classList.add('hidden');
+            topicMonitorSection.classList.remove('hidden');
+            topicMonitorModeBtn.style.background = '#17a2b8';
+            testModeBtn.style.background = '#6c757d';
+            authModeBtn.style.background = '#6c757d';
+            mqttTestModeBtn.style.background = '#6c757d';
+            disconnectIfConnected();
+        };
+        
+        function disconnectIfConnected() {
+            if (socket && socket.connected) {
+                socket.disconnect();
+            }
+            if (mqttMonitorSocket && mqttMonitorSocket.connected) {
+                mqttMonitorSocket.disconnect();
+            }
+            if (topicMonitorSocket && topicMonitorSocket.connected) {
+                topicMonitorSocket.disconnect();
+            }
+        }
+        
+        // Conectar baseado no modo
+        connectBtn.onclick = () => {
+            if (currentMode === 'auth') {
+                const token = jwtTokenInput.value.trim();
+                if (!token) {
+                    alert('Por favor, insira um token JWT válido!');
+                    return;
+                }
+                connectWithAuth(token);
+            } else if (currentMode === 'mqtt-test') {
+                alert('📡 Modo MQTT: Use o botão "Iniciar Monitor MQTT" para começar a escutar!');
+            } else if (currentMode === 'topic-monitor') {
+                alert('🎯 Modo Tópico: Use o botão "Iniciar Monitor" para começar a escutar!');
+            } else {
+                connectTestMode();
+            }
+        };
+        
+        // Função para iniciar monitor MQTT
+        startMqttMonitorBtn.onclick = () => {
+            if (mqttMonitorSocket && mqttMonitorSocket.connected) {
+                alert('Monitor MQTT já está ativo!');
+                return;
+            }
+            
+            mqttMonitorSocket = io('http://localhost:3001/sensor-test', {
+                transports: ['websocket'],
+                upgrade: false,
+                rememberUpgrade: false
+            });
+            
+            mqttMonitorSocket.on('connect', () => {
+                mqttMonitorStatus.textContent = 'Conectado ✅';
+                mqttMonitorStatus.style.color = 'green';
+                startMqttMonitorBtn.style.display = 'none';
+                stopMqttMonitorBtn.style.display = 'inline-block';
+                addLog('🔗 Conectado ao monitor MQTT');
+                addLog('👂 Escutando mensagens de configuração de sensores...');
+                addLog('🔍 Filtro: gw/br_scs/lab/teste/vpak-500/sensorConfig');
+                addLog('📋 Agora vá para sua aplicação e crie um sensor!');
+            });
+            
+            mqttMonitorSocket.on('disconnect', () => {
+                mqttMonitorStatus.textContent = 'Desconectado ❌';
+                mqttMonitorStatus.style.color = 'red';
+                startMqttMonitorBtn.style.display = 'inline-block';
+                stopMqttMonitorBtn.style.display = 'none';
+                addLog('🔌 Desconectado do monitor MQTT');
+            });
+            
+            mqttMonitorSocket.on('connect_error', (error) => {
+                addLog(`❌ Erro de conexão: ${error.message}`);
+            });
+            
+            // Escutar apenas mensagens de configuração de sensores
+            mqttMonitorSocket.on('sensor-config', (data) => {
+                addLog('📡 === CONFIGURAÇÃO DE SENSOR RECEBIDA ===');
+                addLog(`📋 Tópico: ${data.topic}`);
+                addLog(`📋 Payload: ${JSON.stringify(data.payload, null, 2)}`);
+                addLog('==========================================');
+            });
+            
+            // Escutar dados de sensor (caso o MQTT seja convertido para sensor-data)
+            mqttMonitorSocket.on('sensor-data', (data) => {
+                addLog('📊 === DADOS DE SENSOR RECEBIDOS ===');
+                addLog(`📋 Dados: ${JSON.stringify(data, null, 2)}`);
+                addLog('====================================');
+            });
+            
+            // Escutar mensagens MQTT gerais (filtradas)
+            mqttMonitorSocket.on('mqtt-message', (data) => {
+                // Filtrar apenas o tópico específico: gw/br_scs/lab/teste/vpak-500/sensorConfig
+                if (data.topic === 'gw/br_scs/lab/teste/vpak-500/sensorConfig') {
+                    addLog('📡 === CONFIGURAÇÃO DE SENSOR RECEBIDA ===');
+                    addLog(`📋 Tópico: ${data.topic}`);
+                    addLog(`📋 Payload: ${JSON.stringify(data.payload, null, 2)}`);
+                    addLog('==========================================');
+                }
+            });
+        };
+        
+        // Função para parar monitor MQTT
+        stopMqttMonitorBtn.onclick = () => {
+            if (mqttMonitorSocket) {
+                mqttMonitorSocket.disconnect();
+                mqttMonitorSocket = null;
+            }
+        };
+        
+        // Função para limpar logs
+        clearMqttLogsBtn.onclick = () => {
+            mqttLogsDiv.innerHTML = '<h4>📋 Logs MQTT:</h4><p>Logs limpos...</p>';
+        };
+        
+        // Função para iniciar monitor de tópico específico
+        startTopicMonitorBtn.onclick = () => {
+            if (topicMonitorSocket && topicMonitorSocket.connected) {
+                alert('Monitor de tópico já está ativo!');
+                return;
+            }
+            
+            topicMonitorSocket = io('http://localhost:3001/sensor-test', {
+                transports: ['websocket'],
+                upgrade: false,
+                rememberUpgrade: false
+            });
+            
+            topicMonitorSocket.on('connect', () => {
+                topicMonitorStatus.textContent = 'Conectado ✅';
+                topicMonitorStatus.style.color = 'green';
+                startTopicMonitorBtn.style.display = 'none';
+                stopTopicMonitorBtn.style.display = 'inline-block';
+                addTopicLog('🔗 Conectado ao monitor de tópico');
+                addTopicLog('🎯 Escutando: gw/br_scs/lab/teste/vpak-500/sensorConfig');
+                addTopicLog('📋 Agora crie um sensor na sua aplicação!');
+            });
+            
+            topicMonitorSocket.on('disconnect', () => {
+                topicMonitorStatus.textContent = 'Desconectado ❌';
+                topicMonitorStatus.style.color = 'red';
+                startTopicMonitorBtn.style.display = 'inline-block';
+                stopTopicMonitorBtn.style.display = 'none';
+                addTopicLog('🔌 Desconectado do monitor de tópico');
+            });
+            
+            topicMonitorSocket.on('connect_error', (error) => {
+                addTopicLog(`❌ Erro de conexão: ${error.message}`);
+            });
+            
+            // Escutar mensagens MQTT e filtrar apenas o tópico específico
+            topicMonitorSocket.on('mqtt-message', (data) => {
+                if (data.topic === 'gw/br_scs/lab/teste/vpak-500/sensorConfig') {
+                    addTopicLog('🎯 === MENSAGEM DO TÓPICO ESPECÍFICO ===');
+                    addTopicLog(`📋 Tópico: ${data.topic}`);
+                    addTopicLog(`📋 Timestamp: ${data.timestamp}`);
+                    addTopicLog(`📋 Payload:`);
+                    addTopicLog('{');
+                    Object.entries(data.payload).forEach(([key, value], index, array) => {
+                        const isLast = index === array.length - 1;
+                        const comma = isLast ? '' : ',';
+                        const formattedValue = typeof value === 'string' ? `"${value}"` : value;
+                        addTopicLog(`  "${key}": ${formattedValue}${comma}`);
+                    });
+                    addTopicLog('}');
+                    addTopicLog('==========================================');
+                }
+            });
+        };
+        
+        // Função para parar monitor de tópico
+        stopTopicMonitorBtn.onclick = () => {
+            if (topicMonitorSocket) {
+                topicMonitorSocket.disconnect();
+                topicMonitorSocket = null;
+            }
+        };
+        
+        // Função para limpar logs do tópico
+        clearTopicLogsBtn.onclick = () => {
+            topicLogsDiv.innerHTML = '<h4>📋 Logs do Tópico:</h4><p>Logs limpos...</p>';
+        };
+        
+        // Função para testar criação de sensor via API real
+        testSensorCreationBtn.onclick = async () => {
+            addTopicLog('🧪 === TESTE DE CRIAÇÃO DE SENSOR VIA API ===');
+            addTopicLog('📤 Enviando dados reais para o tópico MQTT...');
+            
+            const testData = {
+                "id": "879a0e9a-0f37-4f38-9d4d-102d6e3b741e",
+                "sensorType": 1,
+                "name": "Botão 1 - Teste Real",
+                "tenant_id": "278f6c99-16dc-427f-9df4-741404af98eb",
+                "cntName": "CTN Botão 1",
+                "freqName": "FREQ Botão 1",
+                "speedSource": true,
+                "edge": "both",
+                "timeUnit": "segundos",
+                "speedUnit": "m/s",
+                "freqResol": 100,
+                "ix": 1,
+                "minPeriod": 10,
+                "maxPeriod": 1000,
+                "pollInterval": 1000
+            };
+            
+            addTopicLog('📋 Dados que serão enviados:');
+            addTopicLog('{');
+            Object.entries(testData).forEach(([key, value], index, array) => {
+                const isLast = index === array.length - 1;
+                const comma = isLast ? '' : ',';
+                const formattedValue = typeof value === 'string' ? `"${value}"` : value;
+                addTopicLog(`  "${key}": ${formattedValue}${comma}`);
+            });
+            addTopicLog('}');
+            
+            try {
+                addTopicLog('📡 Chamando API real para publicar no MQTT...');
+                
+                // Chamar a API real para publicar no MQTT com os dados específicos
+                const response = await fetch('http://localhost:3000/api/mqtt-test-publish', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        customData: testData
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    addTopicLog('✅ Mensagem MQTT REAL enviada com sucesso!');
+                    addTopicLog('📋 Tópico: ' + result.topic);
+                    addTopicLog('📋 Timestamp: ' + result.timestamp);
+                    addTopicLog('📋 Status: ' + result.status);
+                    addTopicLog('📋 Mensagem: ' + result.message);
+                    
+                    // Se o monitor estiver conectado, simular o recebimento
+                    if (topicMonitorSocket && topicMonitorSocket.connected) {
+                        addTopicLog('🔄 Simulando recebimento da mensagem...');
+                        const mqttMessage = {
+                            topic: result.topic,
+                            payload: result.payload,
+                            timestamp: result.timestamp
+                        };
+                        topicMonitorSocket.emit('mqtt-message', mqttMessage);
+                        addTopicLog('✅ Simulação de recebimento enviada!');
+                    }
+                    
+                } else {
+                    const error = await response.text();
+                    addTopicLog('❌ Erro na API: ' + response.status);
+                    addTopicLog('❌ Detalhes: ' + error);
+                }
+                
+            } catch (error) {
+                addTopicLog('❌ Erro ao chamar API:');
+                addTopicLog('❌ ' + error.message);
+                addTopicLog('💡 Verifique se o servidor está rodando na porta 3000');
+            }
+            
+            addTopicLog('==========================================');
+        };
+        
+        // Função auxiliar para adicionar logs do tópico
+        function addTopicLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('p');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            topicLogsDiv.appendChild(logEntry);
+            topicLogsDiv.scrollTop = topicLogsDiv.scrollHeight;
+        }
+        
+        // Função auxiliar para adicionar logs
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('p');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            mqttLogsDiv.appendChild(logEntry);
+            mqttLogsDiv.scrollTop = mqttLogsDiv.scrollHeight;
+        }
+        
+        function connectTestMode() {
+            socket = io('http://localhost:3001/sensor-test', {
+                transports: ['websocket'], // Força WebSocket puro
+                upgrade: false, // Não tenta fazer upgrade
+                rememberUpgrade: false
+            });
+            setupSocketEvents();
+        }
+        
+        function connectWithAuth(token) {
+            socket = io('http://localhost:3001/sensor', {
+                auth: {
+                    token: token
+                },
+                transports: ['websocket'], // Força WebSocket puro
+                upgrade: false, // Não tenta fazer upgrade
+                rememberUpgrade: false
+            });
+            setupSocketEvents();
+        }
+        
+        function setupSocketEvents() {
+            // Eventos de conexão
+            socket.on('connect', () => {
+                const modeText = currentMode === 'test' ? 'Teste' : currentMode === 'auth' ? 'Auth' : 'MQTT Test';
+                status.textContent = `Status: Conectado ✅ (${modeText})`;
+                status.className = 'status connected';
+                connectBtn.style.display = 'none';
+                disconnectBtn.style.display = 'inline-block';
+                console.log(`Conectado ao sensor socket (${currentMode})!`);
+            });
+            
+            socket.on('disconnect', () => {
+                status.textContent = 'Status: Desconectado ❌';
+                status.className = 'status disconnected';
+                connectBtn.style.display = 'inline-block';
+                disconnectBtn.style.display = 'none';
+                console.log('Desconectado do sensor socket');
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('Erro de conexão:', error);
+                if (error.message === 'AUTHENTICATION_REQUIRED') {
+                    alert('❌ Token JWT inválido ou expirado!');
+                } else if (error.message === 'INVALID_USER') {
+                    alert('❌ Usuário inválido ou inativo!');
+                } else {
+                    alert(`❌ Erro de conexão: ${error.message}`);
+                }
+            });
+            
+            // Dados do sensor
+            socket.on('sensor-data', (data) => {
+                dataDiv.innerHTML = `
+                    <h3>Dados Recebidos:</h3>
+                    <p><strong>Valor:</strong> ${data.value || 'N/A'}</p>
+                    <p><strong>Unidade:</strong> ${data.unit || 'N/A'}</p>
+                    <p><strong>Timestamp:</strong> ${new Date().toLocaleTimeString()}</p>
+                    <p><strong>Modo:</strong> ${currentMode === 'test' ? '🧪 Teste' : '🔐 Autenticado'}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                console.log('Dados do sensor:', data);
+            });
+        }
+        
+        // Desconectar
+        disconnectBtn.onclick = () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        };
+        
+        // Inicializar modo teste
+        testModeBtn.click();
+        
+        // Debug
+        console.log('Página carregada. Use os botões para alternar entre modos.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔌 Teste de Socket - Login e Conexão</title>
+    <script src="https://smart-platform.io:8443/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        .status-dot.authenticated {
+            background: #3b82f6;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
+        .info-display {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .log-container {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            color: #e2e8f0;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+
+        .log-success {
+            color: #10b981;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .log-info {
+            color: #3b82f6;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔌 Teste de Socket</h1>
+            <p>Login, Autenticação e Conexão com Socket de Sensores</p>
+        </div>
+
+        <div class="content">
+            <!-- Status da Conexão -->
+            <div class="section">
+                <h2>📊 Status da Conexão</h2>
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Desconectado</span>
+                </div>
+            </div>
+
+            <!-- Login -->
+            <div class="section">
+                <h2>🔐 Login</h2>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" value="root@groupwork.com.br" placeholder="Digite seu email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha:</label>
+                    <input type="password" id="password" placeholder="Digite sua senha">
+                </div>
+                <button class="btn btn-primary" id="loginBtn">
+                    🔑 Fazer Login
+                </button>
+                
+                <div id="loginInfo" class="info-display hidden">
+                    <div><strong>Token:</strong> <span id="tokenDisplay"></span></div>
+                    <div><strong>Tenant ID:</strong> <span id="tenantIdDisplay"></span></div>
+                    <div><strong>User ID:</strong> <span id="userIdDisplay"></span></div>
+                </div>
+            </div>
+
+            <!-- Conexão Socket -->
+            <div class="section">
+                <h2>🔌 Conexão Socket</h2>
+                <div class="grid">
+                    <div>
+                        <button class="btn btn-success" id="connectSocketBtn" disabled>
+                            🔌 Conectar ao Socket
+                        </button>
+                        <button class="btn btn-danger" id="disconnectSocketBtn" disabled>
+                            ❌ Desconectar
+                        </button>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="testSensorBtn" disabled>
+                            🧪 Testar Sensor
+                        </button>
+                        <button class="btn btn-primary" id="clearLogBtn">
+                            🗑️ Limpar Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log de Eventos -->
+            <div class="section">
+                <h2>📝 Log de Eventos</h2>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry log-info">
+                        <span class="log-timestamp">[Sistema]</span> Aguardando ações...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SocketTester {
+            constructor() {
+                this.socket = null;
+                this.isConnected = false;
+                this.isAuthenticated = false;
+                this.token = null;
+                this.tenantId = null;
+                this.userId = null;
+                
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    statusDot: document.getElementById('statusDot'),
+                    statusText: document.getElementById('statusText'),
+                    email: document.getElementById('email'),
+                    password: document.getElementById('password'),
+                    loginBtn: document.getElementById('loginBtn'),
+                    loginInfo: document.getElementById('loginInfo'),
+                    tokenDisplay: document.getElementById('tokenDisplay'),
+                    tenantIdDisplay: document.getElementById('tenantIdDisplay'),
+                    userIdDisplay: document.getElementById('userIdDisplay'),
+                    connectSocketBtn: document.getElementById('connectSocketBtn'),
+                    disconnectSocketBtn: document.getElementById('disconnectSocketBtn'),
+                    testSensorBtn: document.getElementById('testSensorBtn'),
+                    clearLogBtn: document.getElementById('clearLogBtn'),
+                    logContainer: document.getElementById('logContainer')
+                };
+            }
+
+            bindEvents() {
+                this.elements.loginBtn.addEventListener('click', () => this.login());
+                this.elements.connectSocketBtn.addEventListener('click', () => this.connectSocket());
+                this.elements.disconnectSocketBtn.addEventListener('click', () => this.disconnectSocket());
+                this.elements.testSensorBtn.addEventListener('click', () => this.testSensor());
+                this.elements.clearLogBtn.addEventListener('click', () => this.clearLog());
+            }
+
+            async login() {
+                const email = this.elements.email.value;
+                const password = this.elements.password.value;
+
+                if (!email || !password) {
+                    this.addLog('❌ Por favor, preencha email e senha', 'error');
+                    return;
+                }
+
+                this.elements.loginBtn.disabled = true;
+                this.elements.loginBtn.innerHTML = '⏳ Fazendo login...';
+
+                try {
+                    const response = await fetch('https://smart-platform.io:8443/api-v2/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Verificar se a resposta tem os campos esperados
+                        if (!data.accessToken || !data.user || !data.user.tenantId || !data.user.id) {
+                            this.addLog('❌ Resposta de login inválida: campos obrigatórios ausentes', 'error');
+                            return;
+                        }
+
+                        this.token = data.accessToken;
+                        this.tenantId = data.user.tenantId;
+                        this.userId = data.user.id;
+
+                        this.elements.tokenDisplay.textContent = this.token.substring(0, 20) + '...';
+                        this.elements.tenantIdDisplay.textContent = this.tenantId;
+                        this.elements.userIdDisplay.textContent = this.userId;
+                        this.elements.loginInfo.classList.remove('hidden');
+
+                        this.isAuthenticated = true;
+                        this.elements.connectSocketBtn.disabled = false;
+
+                        this.addLog('✅ Login realizado com sucesso!', 'success');
+                        this.addLog(`🔑 Token obtido: ${this.token.substring(0, 20)}...`, 'info');
+                        this.addLog(`🏢 Tenant ID: ${this.tenantId}`, 'info');
+                        this.addLog(`👤 User ID: ${this.userId}`, 'info');
+                    } else {
+                        this.addLog(`❌ Erro no login: ${data.error || data.message || 'Erro desconhecido'}`, 'error');
+                    }
+                } catch (error) {
+                    this.addLog(`❌ Erro de conexão: ${error.message}`, 'error');
+                } finally {
+                    this.elements.loginBtn.disabled = false;
+                    this.elements.loginBtn.innerHTML = '🔑 Fazer Login';
+                }
+            }
+
+            connectSocket() {
+                if (!this.isAuthenticated || !this.token || !this.tenantId) {
+                    this.addLog('❌ Faça login primeiro para conectar ao socket', 'error');
+                    return;
+                }
+
+                try {
+                    this.socket = io('https://smart-platform.io:8443/sensor', {
+                        auth: {
+                            token: this.token,
+                            tenantId: this.tenantId
+                        },
+                        reconnection: true,
+                        reconnectionDelay: 1000,
+                        reconnectionAttempts: 5
+                    });
+
+                    this.setupSocketEvents();
+                    this.elements.connectSocketBtn.disabled = true;
+                    this.elements.connectSocketBtn.innerHTML = '⏳ Conectando...';
+
+                } catch (error) {
+                    this.addLog(`❌ Erro ao conectar socket: ${error.message}`, 'error');
+                }
+            }
+
+            setupSocketEvents() {
+                this.socket.on('connect', () => {
+                    this.isConnected = true;
+                    this.updateStatus();
+                    this.elements.connectSocketBtn.disabled = true;
+                    this.elements.disconnectSocketBtn.disabled = false;
+                    this.elements.testSensorBtn.disabled = false;
+                    this.elements.connectSocketBtn.innerHTML = '✅ Conectado';
+                    
+                    this.addLog('✅ Conectado ao socket /sensor', 'success');
+                    this.addLog(`🔌 Socket ID: ${this.socket.id}`, 'info');
+                });
+
+                this.socket.on('disconnect', () => {
+                    this.isConnected = false;
+                    this.updateStatus();
+                    this.elements.connectSocketBtn.disabled = false;
+                    this.elements.disconnectSocketBtn.disabled = true;
+                    this.elements.testSensorBtn.disabled = true;
+                    this.elements.connectSocketBtn.innerHTML = '🔌 Conectar ao Socket';
+                    
+                    this.addLog('❌ Desconectado do socket', 'error');
+                });
+
+                this.socket.on('connect_error', (error) => {
+                    this.addLog(`❌ Erro de conexão: ${error.message}`, 'error');
+                    this.elements.connectSocketBtn.disabled = false;
+                    this.elements.connectSocketBtn.innerHTML = '🔌 Conectar ao Socket';
+                });
+
+                this.socket.on('sensor-data', (data) => {
+                    this.addLog(`📊 Dados do sensor recebidos: ${JSON.stringify(data, null, 2)}`, 'info');
+                });
+
+                this.socket.on('sensor-status', (data) => {
+                    this.addLog(`📈 Status do sensor: ${JSON.stringify(data, null, 2)}`, 'info');
+                });
+
+                this.socket.on('error', (error) => {
+                    this.addLog(`❌ Erro no socket: ${error.message}`, 'error');
+                });
+            }
+
+            disconnectSocket() {
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+                this.isConnected = false;
+                this.updateStatus();
+                this.elements.connectSocketBtn.disabled = false;
+                this.elements.disconnectSocketBtn.disabled = true;
+                this.elements.testSensorBtn.disabled = true;
+                this.elements.connectSocketBtn.innerHTML = '🔌 Conectar ao Socket';
+                
+                this.addLog('🔌 Desconectado manualmente', 'info');
+            }
+
+            testSensor() {
+                if (!this.isConnected || !this.socket) {
+                    this.addLog('❌ Conecte-se ao socket primeiro', 'error');
+                    return;
+                }
+
+                // Enviar comando de teste para o sensor
+                this.socket.emit('get-sensor-status');
+                this.addLog('🧪 Comando de teste enviado para o sensor', 'info');
+            }
+
+            updateStatus() {
+                if (this.isConnected) {
+                    this.elements.statusDot.classList.add('connected');
+                    this.elements.statusText.textContent = 'Conectado';
+                } else if (this.isAuthenticated) {
+                    this.elements.statusDot.classList.add('authenticated');
+                    this.elements.statusText.textContent = 'Autenticado';
+                } else {
+                    this.elements.statusDot.classList.remove('connected', 'authenticated');
+                    this.elements.statusText.textContent = 'Desconectado';
+                }
+            }
+
+            addLog(message, type = 'info') {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString('pt-BR');
+                logEntry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${message}`;
+                
+                this.elements.logContainer.appendChild(logEntry);
+                this.elements.logContainer.scrollTop = this.elements.logContainer.scrollHeight;
+            }
+
+            clearLog() {
+                this.elements.logContainer.innerHTML = '<div class="log-entry log-info"><span class="log-timestamp">[Sistema]</span> Log limpo...</div>';
+            }
+        }
+
+        // Inicializar o testador de socket
+        const socketTester = new SocketTester();
+    </script>
+</body>
+</html>
+

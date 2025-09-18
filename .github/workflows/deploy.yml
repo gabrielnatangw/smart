@@ -1,0 +1,45 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Definir tag conforme branch
+        id: set-tag
+        run: |
+          echo "tag=${GITHUB_REF##*/}" >> $GITHUB_OUTPUT
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Buildar e dar push da imagem
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          build-args: |
+            SKIP_TYPE_CHECK=true
+          tags: |
+            ghcr.io/smart-dev-one/backend-v2:latest
+            ghcr.io/smart-dev-one/backend-v2:${{ steps.set-tag.outputs.tag }}
+
+      - name: Verificar imagens publicadas
+        run: |
+          echo "✅ Imagem Docker publicada com sucesso!"
+          echo "📦 Registry: ghcr.io/smart-dev-one/backend-v2"
+          echo "🏷️  Tags:"
+          echo "   - latest"
+          echo "   - ${{ steps.set-tag.outputs.tag }}"

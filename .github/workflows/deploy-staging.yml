@@ -1,0 +1,45 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_run:
+    workflows: ['Build and Deploy Docker Image']
+    types: [completed]
+    branches: [develop]
+
+jobs:
+  deploy-staging:
+    if: ${{ github.ref == 'refs/heads/develop' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy para Staging
+        run: |
+          echo "🚀 Deployando para STAGING..."
+          echo "📦 Imagem: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:develop"
+          echo "🌍 Ambiente: Staging"
+          echo "📦 Container: smart-v2-backend-staging"
+          echo "🌐 Portas: 3000-3001:3000-3001"
+          echo ""
+          echo "📋 Comando de deploy:"
+          echo "docker run -d \\"
+          echo "  --name smart-v2-backend-staging \\"
+          echo "  -p 3000-3001:3000-3001 \\"
+          echo "  --restart unless-stopped \\"
+          echo "  -e NODE_ENV=staging \\"
+          echo "  -e USE_CLOUD_SQL=true \\"
+          echo "  -e INSTANCE_CONNECTION_NAME=smart-201703:us-central1:smart-platform \\"
+          echo "  -e PROD_DB_DATABASE=smart-develop \\"
+          echo "  ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:develop"
+          echo ""
+          echo "✅ Deploy configurado para STAGING!"
+
+      - name: Notificar Deploy
+        run: |
+          echo "📢 Notificação de Deploy Staging"
+          echo "🕐 Timestamp: $(date)"
+          echo "🔗 Commit: ${{ github.sha }}"
+          echo "👤 Autor: ${{ github.actor }}"
+          echo "🌿 Branch: develop"
